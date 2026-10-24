@@ -67,8 +67,10 @@ class AccessTest extends DatabaseTestCase
         $this->as($this->user('Ann Admin', roles: [$this->a->id => 'CLINIC_ADMIN']));
         $this->assertSame(1, Clinic::whereKey($this->a->id)->update(['phone' => '123']));
         $this->assertSame(0, DB::table('clinics')->where('id', $this->b->id)->update(['phone' => '123']), 'not another clinic');
-        ClinicMember::create(['clinic_id' => $this->a->id, 'user_id' => $this->docB->id, 'role' => 'DOCTOR']);
-        $this->refused(fn () => ClinicMember::create(['clinic_id' => $this->b->id, 'user_id' => $this->docA->id, 'role' => 'DOCTOR']));
+        // people join only by accepting an invitation: a clinic admin can't add anyone directly
+        $this->refused(fn () => ClinicMember::create(['clinic_id' => $this->a->id, 'user_id' => $this->docB->id, 'role' => 'DOCTOR']));
+        $this->assertSame(1, ClinicMember::where('clinic_id', $this->a->id)->where('user_id', $this->docA->id)->update(['role' => 'STAFF']));
+        $this->assertSame(0, DB::table('clinic_user')->where('clinic_id', $this->b->id)->update(['role' => 'STAFF']));
         $this->refused(fn () => Clinic::create(['code' => 'new'.uniqid(), 'name' => 'Not allowed']));
     }
 

@@ -10,7 +10,6 @@ use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -18,8 +17,8 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
-// Who works in this clinic, and as what. A clinic admin adds people by email: an existing account is reused (a doctor
-// can work in several clinics), otherwise a new one is made with the password given here.
+// Who works in this clinic, and as what. People join only by accepting an invitation (Invite on this page; see
+// Invitations); clinic admins change roles and remove people here.
 class MemberResource extends Resource
 {
     use ForRoles;
@@ -36,11 +35,6 @@ class MemberResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make('email')->email()->required()->maxLength(255)->visibleOn('create')
-                ->helperText('If they already have a Scribe account (another clinic), it is reused and the name and password below are ignored.'),
-            TextInput::make('name')->maxLength(255)->visibleOn('create'),
-            TextInput::make('password')->password()->revealable()->minLength(12)->visibleOn('create')
-                ->helperText('For a new account: 12 or more characters. Give it to them privately; they can change it under their profile.'),
             Select::make('role')->options(Clinic::ROLES)->required(),
         ]);
     }
@@ -55,6 +49,11 @@ class MemberResource extends Resource
                 ->state(fn (ClinicMember $m) => $m->role === 'DOCTOR' ? (bool) $m->user?->doctor?->isVerified() : null),
             IconColumn::make('user.active')->label('Active')->boolean(),
         ])->recordActions([EditAction::make(), DeleteAction::make()->label('Remove')]);
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;                                    // people join by invitation
     }
 
     public static function getPages(): array

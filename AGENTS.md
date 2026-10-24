@@ -13,3 +13,6 @@
 - Tests: `php artisan test` on `scribe_test` only. Each test runs in a rolled-back transaction as an administrator
   unless it calls `$this->as($user)`. After an HTTP request the middleware clears the database user.
 - Demo and test data are fictional only. Never real patients or real doctors' licence numbers.
+- The database session runs in the app's time zone (`config/database.php` `timezone`): timestamps are stored
+  without a zone, so SQL `now()` comparisons are only right if both agree.
+- Filament limits sign-ins to 5 a minute: run `php artisan cache:clear` before the browser test.

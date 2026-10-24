@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Behind a reverse proxy or tunnel: trust its X-Forwarded-* headers so URLs are generated as https.
         $middleware->trustProxies(at: '*');
+        // Plain routes (the invitation link) send guests to the panel's sign-in
+        $middleware->redirectGuestsTo('/admin/login');
         // Tell the database who is signed in (row-level security and the audit trail)
         $middleware->web(append: [\App\Http\Middleware\SetDatabaseUser::class]);
     })

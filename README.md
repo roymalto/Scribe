@@ -23,9 +23,12 @@ first sign-in.
 
 ## Code map
 
-- `database/migrations/2026_10_24_000100_*`: tables; 000200 audit trail; 000300 row-level security.
+- `database/migrations/2026_10_24_000100_*`: tables; 000200 audit trail; 000300 row-level security; 000400
+  invitations.
 - `app/Support/DatabaseContext.php`, `app/Http/Middleware/SetDatabaseUser.php`: tell PostgreSQL who is signed in.
-- `app/Filament/`: screens. Clinic: Staff, Doctors, Clinic details (tenant menu). Platform: Clinics, Users.
+- `app/Filament/`: screens. Clinic: Staff, Invitations, Doctors, Clinic details (tenant menu). Platform: Clinics, Users.
+- `app/Services/Invitations.php`, `app/Http/Controllers/InvitationController.php`: invitations and the emailed link.
+  Mail goes to the log until `MAIL_*` is set to a real mail server.
 - `tests/Feature/`: access rules and screens. `tests/browser/smoke.py`: browser check (Playwright).
 
 Demo and test data are fictional only. Never real patients.

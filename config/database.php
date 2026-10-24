@@ -96,6 +96,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
+            // the app writes timestamps in its own time zone (Asia/Manila): the database must compare them in the same one
+            'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
@@ -112,6 +114,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
+            // the app writes timestamps in its own time zone (Asia/Manila): the database must compare them in the same one
+            'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 

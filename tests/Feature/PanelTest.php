@@ -37,7 +37,7 @@ class PanelTest extends DatabaseTestCase
     public function test_the_administrator_opens_every_screen(): void
     {
         $this->actingAs($this->admin);
-        foreach (['', '/members', '/doctors', '/profile', '/users', '/clinics'] as $path) {
+        foreach (['', '/members', '/invitations', '/doctors', '/profile', '/users', '/clinics'] as $path) {
             $this->get($this->url($path))->assertOk();
         }
     }
@@ -64,26 +64,29 @@ class PanelTest extends DatabaseTestCase
         $this->get($this->url('/members'))->assertNotFound();
     }
 
-    public function test_a_clinic_admin_adds_a_new_person_and_reuses_an_existing_account(): void
+    public function test_a_clinic_admin_invites_from_the_staff_page(): void
     {
+        \Illuminate\Support\Facades\Mail::fake();
         $clinicAdmin = $this->user('Liza Admin', roles: [$this->clinic->id => 'CLINIC_ADMIN']);
-        $existing = $this->user('Dr Elsewhere');
         $this->actingAs($clinicAdmin);
         $this->inPanel();
 
         \Livewire\Livewire::test(\App\Filament\Resources\Members\Pages\ManageMembers::class)
-            ->callAction('create', ['email' => 'new.nurse@example.test', 'name' => 'New Nurse',
-                                    'password' => 'a-long-password-1', 'role' => 'STAFF'])
-            ->assertHasNoActionErrors()
-            ->callAction('create', ['email' => strtoupper($existing->email), 'role' => 'DOCTOR'])
+            ->assertActionDoesNotExist('create')
+            ->callAction('invite', ['email' => 'New.Nurse@example.test', 'role' => 'STAFF'])
             ->assertHasNoActionErrors();
 
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\ClinicInvitationMail::class,
+            fn ($m) => $m->hasTo('new.nurse@example.test') && str_contains($m->url, '/invitations/'));
         $this->as($this->admin);
-        $new = User::where('email', 'new.nurse@example.test')->firstOrFail();
-        $this->assertFalse($new->is_admin);
-        $this->assertSame('STAFF', $new->roleIn($this->clinic));
-        $this->assertSame('DOCTOR', $existing->roleIn($this->clinic));
-        $this->assertSame(1, User::where('email', $existing->email)->count(), 'no duplicate account');
+        $this->assertSame('Waiting', \App\Models\ClinicInvitation::where('email', 'new.nurse@example.test')->first()->status());
+        $this->assertNull(User::where('email', 'new.nurse@example.test')->first(), 'no account until they accept');
+    }
+
+    public function test_staff_cannot_open_invitations(): void
+    {
+        $this->actingAs($this->user('Joy Staff', roles: [$this->clinic->id => 'STAFF']));
+        $this->get($this->url('/invitations'))->assertForbidden();
     }
 
     public function test_a_doctor_enters_their_own_licence_details(): void

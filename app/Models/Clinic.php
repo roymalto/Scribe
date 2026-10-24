@@ -20,4 +20,5 @@ class Clinic extends Model
     }
 
     public function members(): HasMany { return $this->hasMany(ClinicMember::class); }
+    public function invitations(): HasMany { return $this->hasMany(ClinicInvitation::class); }
 }

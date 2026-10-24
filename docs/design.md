@@ -41,6 +41,10 @@ automatic repeats, drug-interaction checking.
 
 1. **Foundation (done 2026-10-24):** clinics as tenants, staff and roles, doctors' licence details and
    verification, 2FA, RLS, audit, demo data (`php artisan scribe:demo`).
+   - Roy's decisions (2026-10-24): two-factor sign-in for administrators only; **nobody joins a clinic without
+     accepting an invitation**. A clinic admin invites an email with a role; the emailed link (7 days, only its
+     SHA-256 stored) lets the person accept or decline, signing in first or creating an account. The database
+     enforces it: clinic admins can't insert memberships; `scribe.answer_invitation()` does, as the invited person.
 2. **Patients and medicines:** patients per clinic (number, name, birth date, sex, contact, address), allergies,
    medicine catalogue (generic, brand, strength, form, route), search.
 3. **Prescribing and PDF:** draft builder, issue (locked afterwards: a database trigger), cancel with reason,
