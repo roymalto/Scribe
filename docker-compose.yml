@@ -1,0 +1,42 @@
+# Scribe, DEVELOPMENT (code mounted from this folder).
+#   cp .env.example .env     # then set every password
+#   docker compose up -d --build
+#   docker compose exec app composer install
+#   docker compose exec app php artisan migrate --database=pgsql_owner --seed --force
+services:
+  app:
+    image: scribe:dev
+    build: { context: ., dockerfile: docker/app/Dockerfile, target: dev }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # The code is mounted from the host, so Apache runs as the host user that owns it.
+      APACHE_RUN_USER: "#${HOST_UID:-1000}"
+      APACHE_RUN_GROUP: "#${HOST_GID:-1000}"
+    ports:
+      - "${APP_PORT:-8099}:80"
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      db: { condition: service_healthy }
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-scribe}
+      POSTGRES_USER: ${DB_OWNER_USERNAME:-scribe_owner}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD in .env}
+      DB_APP_USER: ${DB_USERNAME:-scribe_app}
+      DB_APP_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:
