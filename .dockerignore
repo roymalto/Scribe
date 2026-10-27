@@ -1,0 +1,20 @@
+# Not sent to the image build: secrets, dev data and things the build makes itself
+.env
+.env.*
+!.env.example
+.git
+node_modules
+vendor
+public/build
+public/hot
+public/css/filament
+public/js/filament
+public/fonts/filament
+storage/app/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing
+storage/logs/*
+bootstrap/cache/*.php
+tests/browser/shots

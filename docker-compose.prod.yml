@@ -1,0 +1,43 @@
+# Scribe, PRODUCTION (code, dependencies and built assets baked into the image).
+#   .env: APP_KEY, DB_PASSWORD, DB_OWNER_PASSWORD, SCRIBE_ADMIN_*, APP_URL, MAIL_* (see .env.example); mode 600
+#   docker compose -f docker-compose.prod.yml up -d --build
+# The app migrates and seeds (add-only) on start. Data lives in the volumes pgdata (database) and storage (clinic
+# logos, prescription PDFs, logs): back both up (bin/backup.sh).
+name: scribe
+services:
+  app:
+    image: scribe:prod
+    build: { context: ., dockerfile: docker/app/Dockerfile, target: prod }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+    ports:
+      - "${APP_PORT:-8100}:80"
+    volumes:
+      - storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-scribe}
+      POSTGRES_USER: ${DB_OWNER_USERNAME:-scribe_owner}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD in .env}
+      DB_APP_USER: ${DB_USERNAME:-scribe_app}
+      DB_APP_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:
+  storage:

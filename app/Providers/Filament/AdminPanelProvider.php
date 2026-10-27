@@ -13,12 +13,14 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\View\PanelsRenderHook;
 use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 // One panel for the whole platform. Each clinic is a "tenant": its own staff and doctors (and, in later phases, patients
@@ -37,8 +39,21 @@ class AdminPanelProvider extends PanelProvider
             ->tenantProfile(EditClinicProfile::class)
             ->tenantRegistration(RegisterClinic::class)
             ->brandName('Scribe')
+            // Brand files: docs/brand/build_brand.py (same family as SOAP BOX)
+            ->brandLogo(fn () => asset('brand/logo.svg'))
+            ->darkModeBrandLogo(fn () => asset('brand/logo-white.svg'))
+            ->brandLogoHeight('2.25rem')
+            ->favicon(asset('brand/icon.svg'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => new HtmlString(
+                '<link rel="manifest" href="/manifest.webmanifest">'
+                .'<link rel="apple-touch-icon" href="/brand/icon-180.png">'
+                .'<meta name="theme-color" content="#134e4a">'))
             ->defaultAvatarProvider(\App\Filament\LocalAvatars::class)
-            ->colors(['primary' => Color::Teal, 'gray' => Color::Zinc])
+            // deep teal, as the logo (Filament's generated palettes stay bright, so the shades are set here)
+            ->colors(['primary' => [50 => '#f0fdfa', 100 => '#ccfbf1', 200 => '#99f6e4', 300 => '#5eead4', 400 => '#14b8a6',
+                                    500 => '#0f766e', 600 => '#115e59', 700 => '#134e4a', 800 => '#0f3d3a', 900 => '#0b2e2c',
+                                    950 => '#042f2e'],
+                      'gray' => Color::Zinc])
             // Two-factor sign-in with an authenticator app; administrators must set it up
             ->multiFactorAuthentication([AppAuthentication::make()->recoverable()],
                 isRequired: fn () => (bool) auth()->user()?->is_admin)

@@ -21,6 +21,15 @@ docker compose exec app php artisan test         # uses scribe_test only
 Open http://localhost:8099/admin. Administrators must set up two-factor sign-in (an authenticator app) at their
 first sign-in.
 
+## Production
+
+`docker-compose.prod.yml` (image target `prod`; data in the volumes `pgdata` and `storage`). Production is ATISCORE
+(`~/scribe`, port 8100), deployed from karokrok with `bin/deploy-prod.sh` (ships `main` as a git bundle, writes
+`.env` with fresh secrets the first time, builds, waits for `/up`, installs the nightly `bin/backup.sh` at 02:30 into
+`~/backups/scribe`, 30 days kept). Invitations need a real mail server: set `MAIL_*` in `.env` there.
+
+Brand files (icon, logo, favicon, app icons): `docs/brand/build_brand.py`, written to `public/brand/`.
+
 ## Code map
 
 - `database/migrations/2026_10_24_000100_*`: tables; 000200 audit trail; 000300 row-level security; 000400
