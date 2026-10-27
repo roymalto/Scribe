@@ -8,6 +8,7 @@ use Illuminate\Database\Seeder;
 // php artisan db:seed --database=pgsql_owner   (add-only: safe to run on every start)
 //   - the first administrator, when there are no users yet (SCRIBE_ADMIN_EMAIL / SCRIBE_ADMIN_PASSWORD).
 //     They create the first clinic when they sign in.
+//   - the shared medicine catalogue, when it is empty (MedicationSeeder).
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
@@ -22,5 +23,6 @@ class DatabaseSeeder extends Seeder
                 $this->command?->warn('Set SCRIBE_ADMIN_EMAIL and SCRIBE_ADMIN_PASSWORD (12+ characters) to create the first administrator.');
             }
         }
+        $this->call(MedicationSeeder::class);
     }
 }

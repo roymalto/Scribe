@@ -11,3 +11,8 @@ Route::post('/invitations/{token}/answer', [InvitationController::class, 'answer
     ->name('invitations.answer');
 Route::post('/invitations/{token}/register', [InvitationController::class, 'register'])->middleware(['guest', 'throttle:5,1'])
     ->name('invitations.register');
+
+// An issued prescription's PDF: signed-in clinic members only (row-level security decides which)
+Route::get('/prescriptions/{prescription}/pdf', \App\Http\Controllers\PrescriptionPdfController::class)
+    ->whereNumber('prescription')->middleware(['auth', 'throttle:30,1'])
+    ->name('prescriptions.pdf');

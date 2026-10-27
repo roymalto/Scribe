@@ -1,8 +1,10 @@
 # Scribe - notes for AI assistants
 
 - Read `README.md` and `docs/design.md` first.
-- Everything runs in Docker. On pepito, don't run it locally: `~/bin/devsync scribe <command>` runs it on karokrok
-  (dev at http://100.75.80.88:8099, compose project `scribe-dev`).
+- Everything runs in Docker. Since 2026-10-28 the working copy is `~/Projects/scribe` on karokrok (roym account):
+  dev at http://100.75.80.88:8100, compose project `scribe-k` (`APP_PORT`, `COMPOSE_PROJECT_NAME` in `.env`).
+- Prescriptions: the database decides who issues, cancels and what locks (migration 000600); the app only calls it
+  (`App\Services\Prescribing`) and shows `Prescribing::reason()` when it refuses. Never build the snapshot in PHP.
 - Migrations and seeders: always `--database=pgsql_owner`. The app's role is not the owner, so row-level security
   always applies to it. `migrate:fresh` doesn't drop the `scribe` schema: `DROP SCHEMA scribe CASCADE` first.
 - Every clinical table needs: a `clinic_id` (or a parent that has one), RLS policies in a migration, the audit

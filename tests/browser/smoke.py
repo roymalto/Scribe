@@ -1,6 +1,6 @@
-# Browser smoke test (fictional demo data: php artisan scribe:demo). Run on karokrok:
+# Browser smoke test (fictional demo data: php artisan scribe:demo). Run on karokrok, from the project folder:
 #   docker compose exec -T app php artisan cache:clear   # sign-ins are limited to 5 a minute
-#   docker run --rm --network host -v "$PWD/tests/browser:/t" -v "$PWD/storage/logs:/logs:ro" -e BASE=http://127.0.0.1:8099 -e PW="$SCRIBE_DEMO_PASSWORD" \
+#   docker run --rm --network host -v "$PWD/tests/browser:/t" -v "$PWD/storage/logs:/logs:ro" -e BASE=http://127.0.0.1:8100 -e PW="$SCRIBE_DEMO_PASSWORD" \
 #     mcr.microsoft.com/playwright/python:v1.55.0-noble sh -c "pip install -q playwright==1.55.0 && python /t/smoke.py"
 import os
 from playwright.sync_api import sync_playwright
@@ -89,6 +89,40 @@ with sync_playwright() as p:
     ok = "Sampaguita" in page.content()
     print(("OK  " if ok else "BAD ") + "invitation: new person created an account and joined")
     results.append(ok)
+    ctx.close()
+
+    # prescribing: the doctor opens the patient list and a draft, issues it, and downloads the PDF (phases 2 and 3).
+    # A repeat at the end leaves a new draft, so the test can run again.
+    ctx = b.new_context(viewport={"width": 1280, "height": 900})
+    page = ctx.new_page()
+    login(page, "demo.doctor@example.test")
+    results.append(check(page, "/admin/sampaguita/patients", "Dizon", "10_patients"))
+    results.append(check(page, "/admin/sampaguita/medications", "Amoxicillin", "11_medicines"))
+    page.goto(f"{BASE}/admin/sampaguita/prescriptions")
+    page.wait_for_load_state("networkidle")
+    page.locator("tr", has_text="Dizon").filter(has_text="Draft").first.click()
+    page.wait_for_url(lambda u: "/prescriptions/" in u and not u.endswith("/prescriptions"), timeout=15000)
+    page.wait_for_load_state("networkidle")
+    page.screenshot(path="/t/shots/12_draft.png", full_page=True)
+    page.get_by_role("button", name="Issue", exact=True).click()
+    page.locator(".fi-modal-window").get_by_role("button", name="Confirm").click()
+    page.get_by_text("Issued SAMPAGUITA-").first.wait_for(timeout=20000)
+    page.wait_for_load_state("networkidle")
+    page.screenshot(path="/t/shots/13_issued.png", full_page=True)
+    href = page.locator("a", has_text="Download PDF").first.get_attribute("href")
+    r = page.request.get(href)
+    ok = r.status == 200 and r.headers.get("content-type") == "application/pdf" and r.body()[:4] == b"%PDF"
+    print(("OK  " if ok else "BAD ") + f"{r.status} issued and downloaded {href}")
+    results.append(ok)
+    open("/t/shots/14_prescription.pdf", "wb").write(r.body())
+    page.get_by_role("button", name="More").click()
+    page.get_by_role("menuitem", name="Repeat").click() if page.get_by_role("menuitem", name="Repeat").count() else page.get_by_text("Repeat", exact=True).click()
+    page.locator(".fi-modal-window").get_by_role("button", name="Confirm").click()
+    page.wait_for_url(lambda u: u.endswith("/edit"), timeout=15000)
+    print("OK  repeat made a new draft for the next run")
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.wait_for_load_state("networkidle")
+    page.screenshot(path="/t/shots/15_builder_phone.png", full_page=True)
     ctx.close()
     b.close()
 print("ALL OK" if all(results) else "SOME FAILED")

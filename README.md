@@ -24,9 +24,15 @@ first sign-in.
 ## Code map
 
 - `database/migrations/2026_10_24_000100_*`: tables; 000200 audit trail; 000300 row-level security; 000400
-  invitations.
+  invitations; `2026_10_28_000500` patients, allergies, medicine catalogue; 000600 prescriptions (issue rules, lock,
+  snapshot, supersede) and their PDFs.
+- `database/seeders/MedicationSeeder.php`: the shared catalogue (about 115 common generics), loaded once.
 - `app/Support/DatabaseContext.php`, `app/Http/Middleware/SetDatabaseUser.php`: tell PostgreSQL who is signed in.
-- `app/Filament/`: screens. Clinic: Staff, Invitations, Doctors, Clinic details (tenant menu). Platform: Clinics, Users.
+- `app/Filament/`: screens. Patients (allergies, medication history), Prescriptions (builder, issue, cancel, correct,
+  repeat, PDF), Medicines. Clinic: Staff, Invitations, Doctors, Clinic details (tenant menu). Platform: Clinics, Users.
+- `app/Services/Prescribing.php`: issue, cancel, correct/repeat, allergy warnings. `app/Services/PrescriptionPdf.php`,
+  `resources/views/pdf/prescription.blade.php`, `PrescriptionPdfController`: the PDF from the issued snapshot,
+  stored privately with its SHA-256; members download it at `/prescriptions/{id}/pdf`.
 - `app/Services/Invitations.php`, `app/Http/Controllers/InvitationController.php`: invitations and the emailed link.
   Mail goes to the log until `MAIL_*` is set to a real mail server.
 - `tests/Feature/`: access rules and screens. `tests/browser/smoke.py`: browser check (Playwright).

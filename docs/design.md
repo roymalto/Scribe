@@ -45,13 +45,19 @@ automatic repeats, drug-interaction checking.
      accepting an invitation**. A clinic admin invites an email with a role; the emailed link (7 days, only its
      SHA-256 stored) lets the person accept or decline, signing in first or creating an account. The database
      enforces it: clinic admins can't insert memberships; `scribe.answer_invitation()` does, as the invited person.
-2. **Patients and medicines:** patients per clinic (number, name, birth date, sex, contact, address), allergies,
-   medicine catalogue (generic, brand, strength, form, route), search.
-3. **Prescribing and PDF:** draft builder, issue (locked afterwards: a database trigger), cancel with reason,
-   supersede, repeat from history; PDF from the issued snapshot (Dompdf), stored privately with a SHA-256 hash;
-   only clinic members download it.
+2. **Patients and medicines (done 2026-10-28):** patients per clinic (number P-000001 given by the database, name,
+   birth date, sex, contact, address), allergies, medicine catalogue (generic first, brand optional, strength, form,
+   route, dangerous-drug flag): a shared list of about 115 generics kept by administrators plus each clinic's own.
+   Staff register and update patients; only clinic admins delete.
+3. **Prescribing and PDF (done 2026-10-28):** draft builder (staff prepare for a doctor), issue (only that doctor,
+   verified and unexpired PRC licence, DOCTOR member of the clinic, S2 number for dangerous drugs; locked afterwards
+   by database triggers), cancel with reason (the doctor or a clinic admin), correct (supersedes the original when
+   issued), repeat from history; allergy warnings (not blocking); PDF (A5, Dompdf) from the snapshot the database
+   builds at issue, stored privately with a SHA-256 hash, only clinic members download it.
 4. **Readiness:** backups and restore test, privacy impact assessment (Data Privacy Act), clinical acceptance tests,
-   S2 / dangerous-drug rules, prescription template checked against current FDA / DOH rules.
+   S2 / dangerous-drug rules (yellow prescription form), prescription template checked against current FDA / DOH
+   rules, the medicine catalogue and its dangerous-drug flags checked against the PNF and PDEA schedules, a real mail
+   server for invitations, hosting.
 
 ## Prescription states (phase 3)
 
