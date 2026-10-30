@@ -61,6 +61,10 @@ class ViewPrescription extends ViewRecord
             Action::make('pdf')->label('Download PDF')->icon('heroicon-o-arrow-down-tray')
                 ->visible(fn () => $p()->isIssued())
                 ->url(fn () => route('prescriptions.pdf', $p()), shouldOpenInNewTab: true),
+            Action::make('pdfToSign')->label('PDF to sign by hand')->icon('heroicon-o-pencil')->color('gray')
+                ->visible(fn () => $p()->isIssued() && filled($p()->snapshot['doctor']['signature_path'] ?? null))
+                ->tooltip('The same prescription without the signature image, to print and sign')
+                ->url(fn () => route('prescriptions.pdf', ['prescription' => $p(), 'unsigned' => 1]), shouldOpenInNewTab: true),
             EditAction::make()->label('Edit draft')->visible(fn () => $p()->isDraft()),
             ActionGroup::make([
                 Action::make('repeat')->label('Repeat')->icon('heroicon-o-arrow-path')

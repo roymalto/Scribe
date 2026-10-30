@@ -21,13 +21,7 @@ class PrescriptionPdf
             throw new RuntimeException('Only an issued prescription has a PDF.');
         }
         $s = $p->snapshot;
-        $logo = null;
-        $logoPath = $s['clinic']['logo_path'] ?? null;
-        if ($logoPath && Storage::disk('local')->exists($logoPath)) {
-            $mime = Storage::disk('local')->mimeType($logoPath) ?: 'image/png';
-            $logo = "data:{$mime};base64,".base64_encode(Storage::disk('local')->get($logoPath));
-        }
-        $bytes = Pdf::loadView('pdf.prescription', ['s' => $s, 'logo' => $logo])->setPaper('a5')->output();
+        $bytes = $this->render($p);
 
         $path = sprintf('prescriptions/%d/%s-%s.pdf', $p->clinic_id, $s['reference'], now()->format('YmdHis'));
         Storage::disk('local')->put($path, $bytes);
@@ -36,6 +30,32 @@ class PrescriptionPdf
             'clinic_id' => $p->clinic_id, 'prescription_id' => $p->id, 'path' => $path,
             'sha256' => hash('sha256', $bytes), 'generated_at' => now(), 'generated_by' => auth()->id(),
         ]);
+    }
+
+    // The PDF's bytes from the snapshot; without the doctor's signature image when they will sign it by hand
+    public function render(Prescription $p, bool $withSignature = true): string
+    {
+        if ($p->isDraft() || ! $p->snapshot) {
+            throw new RuntimeException('Only an issued prescription has a PDF.');
+        }
+        $s = $p->snapshot;
+
+        return Pdf::loadView('pdf.prescription', [
+            's' => $s,
+            'logo' => $this->image($s['clinic']['logo_path'] ?? null),
+            'signature' => $withSignature ? $this->image($s['doctor']['signature_path'] ?? null) : null,
+        ])->setPaper('a5')->output();
+    }
+
+    // An image on the private disk as a data URI for Dompdf (no file access from the template); null if missing
+    private function image(?string $path): ?string
+    {
+        if (! $path || ! Storage::disk('local')->exists($path)) {
+            return null;
+        }
+        $mime = Storage::disk('local')->mimeType($path) ?: 'image/png';
+
+        return "data:{$mime};base64,".base64_encode(Storage::disk('local')->get($path));
     }
 
     /** The latest PDF that still matches its recorded hash, made now if there is none. */

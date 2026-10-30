@@ -184,6 +184,30 @@ class PrescribingTest extends DatabaseTestCase
         $this->assertSame('Ramon Doc, MD', $p->fresh()->snapshot['doctor']['name']);
     }
 
+    public function test_the_snapshot_lists_every_clinic_the_doctor_practises_at_issuing_one_first(): void
+    {
+        $this->as($this->admin);
+        $aardvark = $this->clinic('Aardvark Medical');           // sorts before the issuing clinic by name
+        $closed = $this->clinic('Closed Clinic');
+        $closed->update(['active' => false]);
+        $staffed = $this->clinic('Where He Is Staff');
+        foreach ([$aardvark->id => 'DOCTOR', $closed->id => 'DOCTOR', $staffed->id => 'STAFF'] as $clinicId => $role) {
+            DB::table('clinic_user')->insert(['clinic_id' => $clinicId, 'user_id' => $this->doc->id, 'role' => $role]);
+        }
+
+        $this->as($this->doc);
+        $p = $this->draft();
+        $this->issue($p);
+        $clinics = $p->fresh()->snapshot['doctor_clinics'];
+        $this->assertSame(['Sampaguita Clinic', 'Aardvark Medical'], array_column($clinics, 'name'));
+        $this->assertSame('12 Mabini St', $clinics[0]['address']);
+
+        // printed as issued: a clinic joined later doesn't appear on it
+        $this->as($this->admin);
+        DB::table('clinic_user')->insert(['clinic_id' => $this->b->id, 'user_id' => $this->doc->id, 'role' => 'DOCTOR']);
+        $this->assertCount(2, $p->fresh()->snapshot['doctor_clinics']);
+    }
+
     public function test_cancelling_needs_a_reason_and_the_doctor_or_a_clinic_admin(): void
     {
         $this->as($this->doc);
@@ -282,6 +306,56 @@ class PrescribingTest extends DatabaseTestCase
         $this->expectException(\RuntimeException::class);
         $this->as($this->doc);
         app(PrescriptionPdf::class)->current($p);
+    }
+
+    public function test_only_the_doctor_sets_their_signature_and_it_prints(): void
+    {
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+        $mine = "doctor-signatures/{$this->doc->id}/first.png";
+        $newer = "doctor-signatures/{$this->doc->id}/second.png";
+        Storage::disk('local')->put($mine, $png);
+        Storage::disk('local')->put($newer, $png);
+        $images = fn (Prescription $p) => substr_count(Storage::disk('local')->get($p->documents()->first()->path), '/Subtype /Image');
+
+        // nobody else puts a doctor's signature on prescriptions, and nobody points at another doctor's file
+        $this->as($this->clinicAdmin);
+        $this->refused(fn () => Doctor::where('user_id', $this->doc->id)->update(['signature_path' => $mine]), 'only the doctor');
+        $this->as($this->admin);
+        $this->refused(fn () => Doctor::where('user_id', $this->doc->id)->update(['signature_path' => $mine]), 'only the doctor');
+        $this->as($this->doc2);
+        $this->refused(fn () => Doctor::where('user_id', $this->doc2->id)->update(['signature_path' => $mine]), "doctor's own folder");
+
+        $this->as($this->doc);
+        Doctor::where('user_id', $this->doc->id)->update(['signature_path' => $mine]);
+        $signed = $this->draft();
+        $this->issue($signed);
+        $this->assertSame($mine, $signed->fresh()->snapshot['doctor']['signature_path']);
+        $this->assertGreaterThan(0, $images($signed), 'the signature is printed');
+
+        // the copy to sign by hand leaves it out, isn't stored, and is for clinic members only like the PDF
+        $docs = PrescriptionDocument::count();
+        $reference = $signed->fresh()->reference;
+        $copy = $this->actingAs($this->staff)->get("/prescriptions/{$signed->id}/pdf?unsigned=1")->assertOk()
+            ->assertHeader('Content-Disposition', 'inline; filename="'.$reference.'-to-sign.pdf"');
+        $this->assertStringStartsWith('%PDF', $copy->getContent());
+        $this->assertSame(0, substr_count($copy->getContent(), '/Subtype /Image'));
+        $this->as($this->doc);
+        $this->assertSame($docs, PrescriptionDocument::count());
+        $this->actingAs($this->user('Other Staff', roles: [$this->b->id => 'STAFF']))
+            ->get("/prescriptions/{$signed->id}/pdf?unsigned=1")->assertNotFound();
+        $this->as($this->doc);
+
+        // a new signature doesn't change what was issued
+        Doctor::where('user_id', $this->doc->id)->update(['signature_path' => $newer]);
+        $this->assertSame($mine, $signed->fresh()->snapshot['doctor']['signature_path']);
+
+        // an administrator may only remove it; then prescriptions print without one
+        $this->as($this->admin);
+        Doctor::where('user_id', $this->doc->id)->update(['signature_path' => null]);
+        $this->as($this->doc);
+        $unsigned = $this->draft();
+        $this->issue($unsigned);
+        $this->assertSame(0, $images($unsigned));
     }
 
     public function test_a_draft_has_no_pdf(): void

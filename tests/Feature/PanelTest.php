@@ -127,4 +127,24 @@ class PanelTest extends DatabaseTestCase
         $this->assertSame('0123456', Doctor::where('user_id', $doctor->id)->value('prc_license_no'));
         $this->assertFalse(Doctor::where('user_id', $doctor->id)->first()->isVerified());
     }
+
+    public function test_only_the_doctor_sees_their_signature_upload_and_edits_only_their_own(): void
+    {
+        $ramon = $this->user('Ramon Doctor', roles: [$this->clinic->id => 'DOCTOR']);
+        $celia = $this->user('Celia Doctor', roles: [$this->clinic->id => 'DOCTOR']);
+        $clinicAdmin = $this->user('Liza Admin', roles: [$this->clinic->id => 'CLINIC_ADMIN']);
+        $this->as($this->admin);
+        $own = Doctor::create(['user_id' => $ramon->id, 'display_name' => 'Ramon Doctor, MD', 'prc_license_no' => '0123456']);
+        $other = Doctor::create(['user_id' => $celia->id, 'display_name' => 'Celia Doctor, MD', 'prc_license_no' => '0654321']);
+        $edit = fn (Doctor $d) => \Filament\Actions\Testing\TestAction::make('edit')->table($d);
+        $page = \App\Filament\Resources\Doctors\Pages\ManageDoctors::class;
+
+        $this->actingAs($ramon);
+        $this->inPanel();
+        \Livewire\Livewire::test($page)->assertActionHidden($edit($other))
+            ->mountAction($edit($own))->assertFormFieldVisible('signature_path');
+
+        $this->actingAs($clinicAdmin);
+        \Livewire\Livewire::test($page)->mountAction($edit($own))->assertFormFieldHidden('signature_path');
+    }
 }

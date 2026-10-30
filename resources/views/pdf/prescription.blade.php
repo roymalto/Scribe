@@ -6,6 +6,7 @@
     $issued = \Illuminate\Support\Carbon::parse($s['issued_at']);
     $sex = ['M' => 'Male', 'F' => 'Female'][$pt['sex'] ?? ''] ?? null;
     $hasDangerous = collect($s['items'] ?? [])->contains(fn ($i) => $i['is_dangerous_drug'] ?? false);
+    $clinics = ($s['doctor_clinics'] ?? []) ?: [$c];          // prescriptions issued before 2026-10-31: the issuing one
 @endphp
 <!doctype html>
 <html>
@@ -16,7 +17,11 @@
     @page { margin: 14mm 12mm 16mm 12mm; }
     body { font-family: DejaVu Sans, sans-serif; font-size: 9.5pt; color: #111; }
     .head td { vertical-align: middle; }
-    .clinic { font-size: 14pt; font-weight: bold; }
+    .doctor-name { font-size: 15pt; font-weight: bold; }
+    .specialty { font-size: 10pt; color: #0f766e; }
+    .clinics { margin-top: 5px; }
+    .clinics td { vertical-align: top; font-size: 7.5pt; color: #444; padding: 0 8px 4px 0; }
+    .clinic { font-size: 8.5pt; font-weight: bold; color: #111; }
     .muted { color: #555; font-size: 8.5pt; }
     hr { border: 0; border-top: 1.5px solid #0f766e; margin: 6px 0 8px; }
     .patient td { padding: 1px 0; vertical-align: top; }
@@ -28,27 +33,41 @@
     .dd { color: #b91c1c; font-size: 8pt; font-weight: bold; }
     .notes { margin-top: 8px; }
     .doctor { margin-top: 26px; }
+    .signature { width: 60%; margin-left: 40%; text-align: center; margin-bottom: -4px; }
     .sign { border-top: 1px solid #111; width: 60%; margin-left: 40%; padding-top: 3px; text-align: center; }
     .foot { position: fixed; bottom: -8mm; left: 0; right: 0; font-size: 7.5pt; color: #555; }
 </style>
 </head>
 <body>
+{{-- Headed by the doctor; every clinic they practise at underneath, the issuing one first --}}
 <table class="head" width="100%">
     <tr>
         @if ($logo)
             <td width="22%"><img src="{{ $logo }}" style="max-height: 55px; max-width: 95%;"></td>
         @endif
         <td>
-            <div class="clinic">{{ $c['name'] ?? '' }}</div>
-            @if (! empty($c['header_note']))<div>{{ $c['header_note'] }}</div>@endif
-            <div class="muted">
-                {{ collect([$c['address'] ?? null, $c['city'] ?? null])->filter()->implode(', ') }}
-                @if (! empty($c['phone'])) &middot; {{ $c['phone'] }}@endif
-                @if (! empty($c['email'])) &middot; {{ $c['email'] }}@endif
-            </div>
-            @if (! empty($c['hours']))<div class="muted">Clinic hours: {{ $c['hours'] }}</div>@endif
+            <div class="doctor-name">{{ $d['name'] ?? '' }}</div>
+            @if (! empty($d['specialty']))<div class="specialty">{{ $d['specialty'] }}</div>@endif
         </td>
     </tr>
+</table>
+<table class="clinics" width="100%">
+    @foreach (array_chunk($clinics, 2) as $row)
+        <tr>
+            @foreach ($row as $n => $k)
+                <td width="{{ count($clinics) > 1 ? '50%' : '100%' }}">
+                    <div class="clinic">{{ $k['name'] ?? '' }}</div>
+                    @if ($loop->parent->first && $n === 0 && ! empty($c['header_note']))<div>{{ $c['header_note'] }}</div>@endif
+                    <div>{{ collect([$k['address'] ?? null, $k['city'] ?? null])->filter()->implode(', ') }}</div>
+                    @if (! empty($k['phone']) || ! empty($k['email']))
+                        <div>{{ collect([$k['phone'] ?? null, $k['email'] ?? null])->filter()->implode(' · ') }}</div>
+                    @endif
+                    @if (! empty($k['hours']))<div>Clinic hours: {{ $k['hours'] }}</div>@endif
+                </td>
+            @endforeach
+            @if (count($clinics) > 1 && count($row) === 1)<td></td>@endif
+        </tr>
+    @endforeach
 </table>
 <hr>
 
@@ -87,6 +106,11 @@
 @if (! empty($s['follow_up']))<div class="notes"><strong>Follow-up:</strong> {{ $s['follow_up'] }}</div>@endif
 
 <div class="doctor">
+    @if ($signature ?? null)
+        <div class="signature"><img src="{{ $signature }}" style="max-height: 42px; max-width: 150px;"></div>
+    @else
+        <div style="height: 42px;"></div>{{-- room to sign by hand --}}
+    @endif
     <div class="sign">
         <strong>{{ $d['name'] ?? '' }}</strong>@if (! empty($d['specialty']))<br>{{ $d['specialty'] }}@endif
         <br><span class="muted">PRC Lic. No. {{ $d['prc_license_no'] ?? '' }}
