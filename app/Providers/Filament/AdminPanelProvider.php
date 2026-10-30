@@ -7,14 +7,17 @@ use App\Filament\Pages\EditClinicProfile;
 use App\Filament\Pages\RegisterClinic;
 use App\Models\Clinic;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -34,7 +37,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->profile(isSimple: false)
+            ->profile(\App\Filament\Auth\EditProfile::class, isSimple: false)
             ->tenant(Clinic::class, slugAttribute: 'code')
             ->tenantProfile(EditClinicProfile::class)
             ->tenantRegistration(RegisterClinic::class)
@@ -58,6 +61,13 @@ class AdminPanelProvider extends PanelProvider
             ->multiFactorAuthentication([AppAuthentication::make()->recoverable()],
                 isRequired: fn () => (bool) auth()->user()?->is_admin)
             ->navigationGroups(['Clinic', 'Platform'])
+            // the clinic's details and logo (also under the clinic's name at the top), for those who keep them
+            ->navigationItems([
+                NavigationItem::make('Clinic details')->group('Clinic')->sort(10)->icon(Heroicon::OutlinedBuildingOffice2)
+                    ->url(fn () => Filament::getTenantProfileUrl())
+                    ->isActiveWhen(fn () => request()->routeIs('filament.admin.tenant.profile'))
+                    ->visible(fn () => ($clinic = Filament::getTenant()) && EditClinicProfile::canView($clinic)),
+            ])
             ->sidebarCollapsibleOnDesktop()
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
@@ -76,6 +86,7 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
+            ->tenantMiddleware([\App\Http\Middleware\RememberClinic::class], isPersistent: true)
             ->authMiddleware([
                 Authenticate::class,
             ]);

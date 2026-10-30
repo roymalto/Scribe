@@ -8,6 +8,7 @@ use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthenticationRecover
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,7 +25,7 @@ use Illuminate\Support\Collection;
 // the clinics they belong to, with a role in each: CLINIC_ADMIN, DOCTOR or STAFF.
 #[Fillable(['name', 'email', 'password', 'is_admin', 'active'])]
 #[Hidden(['password', 'remember_token', 'app_authentication_secret', 'app_authentication_recovery_codes'])]
-class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasTenants
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasDefaultTenant, HasTenants
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, InteractsWithAppAuthentication, InteractsWithAppAuthenticationRecovery, Notifiable;
@@ -67,6 +68,14 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function canAccessTenant(Model $tenant): bool
     {
         return $this->is_admin || $this->clinics()->whereKey($tenant->getKey())->exists();
+    }
+
+    // The clinic they were last working in (RememberClinic), else the first: where sign-in and the profile open
+    public function getDefaultTenant(Panel $panel): ?Model
+    {
+        $last = ($id = session('scribe.clinic_id')) ? Clinic::where('active', true)->find($id) : null;
+
+        return $last && $this->canAccessTenant($last) ? $last : $this->getTenants($panel)->first();
     }
 
     public function isAdmin(): bool

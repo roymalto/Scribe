@@ -40,6 +40,9 @@ class ViewPrescription extends ViewRecord
         $p = fn (): Prescription => $this->record;
 
         return [
+            // the way out on a phone, where the breadcrumbs are hidden
+            Action::make('back')->label('Back to prescriptions')->icon('heroicon-o-arrow-left')->color('gray')
+                ->url(fn () => PrescriptionResource::getUrl('index')),
             Action::make('issue')->label('Issue')->icon('heroicon-o-check-badge')->color('success')
                 ->visible(fn () => $p()->isDraft() && $p()->doctor_user_id === auth()->id())
                 ->requiresConfirmation()->modalHeading('Issue this prescription?')

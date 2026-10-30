@@ -40,6 +40,8 @@ class PanelTest extends DatabaseTestCase
         foreach (['', '/members', '/invitations', '/doctors', '/profile', '/users', '/clinics'] as $path) {
             $this->get($this->url($path))->assertOk();
         }
+        $this->get('/admin/profile')->assertOk();
+        $this->get($this->url())->assertSee('Clinic details');
     }
 
     public function test_staff_see_the_clinic_but_not_its_settings_or_the_platform(): void
@@ -52,6 +54,8 @@ class PanelTest extends DatabaseTestCase
         $this->get($this->url('/doctors'))->assertOk();
         $this->get($this->url('/profile'))->assertNotFound();
         $this->get($this->url('/users'))->assertForbidden();
+        $this->get('/admin/profile')->assertOk()->assertSee('Joy Staff');      // their own profile, in their clinic
+        $this->get($this->url())->assertDontSee('Clinic details');
         $this->get($this->url('/clinics'))->assertForbidden();
     }
 
@@ -105,6 +109,16 @@ class PanelTest extends DatabaseTestCase
 
         $this->as($this->admin);
         $this->assertSame('DOCTOR', User::where('email', 'dr.screen@example.test')->firstOrFail()->roleIn($this->clinic));
+    }
+
+    public function test_the_profile_opens_in_the_clinic_they_were_working_in(): void
+    {
+        $zinnia = $this->clinic('Zinnia Clinic');                 // sorts after the setUp clinic
+        $doctor = $this->user('Ramon Doctor', roles: [$this->clinic->id => 'DOCTOR', $zinnia->id => 'DOCTOR']);
+        $this->actingAs($doctor);
+
+        $this->get('/admin/'.$zinnia->code.'/doctors')->assertOk();
+        $this->get('/admin/profile')->assertOk()->assertSee('/admin/'.$zinnia->code.'/patients', escape: false);
     }
 
     public function test_staff_cannot_open_invitations(): void
