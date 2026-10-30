@@ -13,6 +13,7 @@ use Filament\Facades\Filament;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Support\Js;
 
 // A prescription and what can be done with it next: issue (its doctor), cancel, correct, repeat, download the PDF
 class ViewPrescription extends ViewRecord
@@ -33,6 +34,29 @@ class ViewPrescription extends ViewRecord
     private function draftDoctor(): ?int
     {
         return $this->myRole() === 'DOCTOR' && ! auth()->user()->is_admin ? auth()->id() : null;
+    }
+
+    // A PDF button. On a computer it downloads the file. On a phone or tablet it opens the phone's share sheet with the
+    // PDF (Viber, Messenger, save to Files, print): a download there opens a bare viewer with no way to share or go
+    // back (iPhone, home-screen app). The share sheet must open straight from the tap, so the PDF is fetched when the
+    // page opens. It needs https (the share sheet isn't offered on plain http); without it, the button downloads.
+    protected static function pdfAction(Action $action, \Closure $p, bool $unsigned): Action
+    {
+        $url = fn () => route('prescriptions.pdf', array_filter(['prescription' => $p(), 'unsigned' => $unsigned ? 1 : null]));
+        $name = fn () => $p()->reference.($unsigned ? '-to-sign' : '').'.pdf';
+
+        // Single quotes only in the script: Filament doesn't escape double quotes in these attributes, and it drops
+        // x-on:click on a link, so the click handler is added from x-init
+        return $action->url($url)->extraAttributes(fn () => [
+            'download' => '',
+            'x-data' => '{ pdfFile: null }',
+            'x-init' => "if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare) {"
+                .' fetch('.Js::from($url()).", { credentials: 'same-origin' })"
+                .' .then(r => r.ok ? r.blob() : null)'
+                .' .then(b => { if (b) pdfFile = new File([b], '.Js::from($name()).", { type: 'application/pdf' }) });"
+                ." \$el.addEventListener('click', e => { if (pdfFile && navigator.canShare({ files: [pdfFile] })) {"
+                .' e.preventDefault(); navigator.share({ files: [pdfFile], title: '.Js::from($p()->reference).' }).catch(() => {}) } }) }',
+        ]);
     }
 
     protected function getHeaderActions(): array
@@ -61,13 +85,11 @@ class ViewPrescription extends ViewRecord
                     Notification::make()->success()->title('Issued '.$p()->reference)->send();
                     $this->refreshFormData(['status', 'reference', 'issued_at']);
                 }),
-            Action::make('pdf')->label('Download PDF')->icon('heroicon-o-arrow-down-tray')
-                ->visible(fn () => $p()->isIssued())
-                ->url(fn () => route('prescriptions.pdf', $p()))->extraAttributes(['download' => '']),
-            Action::make('pdfToSign')->label('PDF to sign by hand')->icon('heroicon-o-pencil')->color('gray')
+            static::pdfAction(Action::make('pdf')->label('Download PDF')->icon('heroicon-o-arrow-down-tray')
+                ->visible(fn () => $p()->isIssued()), $p, unsigned: false),
+            static::pdfAction(Action::make('pdfToSign')->label('PDF to sign by hand')->icon('heroicon-o-pencil')->color('gray')
                 ->visible(fn () => $p()->isIssued() && filled($p()->snapshot['doctor']['signature_path'] ?? null))
-                ->tooltip('The same prescription without the signature image, to print and sign')
-                ->url(fn () => route('prescriptions.pdf', ['prescription' => $p(), 'unsigned' => 1]))->extraAttributes(['download' => '']),
+                ->tooltip('The same prescription without the signature image, to print and sign'), $p, unsigned: true),
             EditAction::make()->label('Edit draft')->visible(fn () => $p()->isDraft()),
             ActionGroup::make([
                 Action::make('repeat')->label('Repeat')->icon('heroicon-o-arrow-path')

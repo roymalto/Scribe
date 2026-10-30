@@ -44,7 +44,7 @@ class PrescriptionPdf
             's' => $s,
             'logo' => $this->image($s['clinic']['logo_path'] ?? null),
             'signature' => $withSignature ? $this->image($s['doctor']['signature_path'] ?? null) : null,
-        ])->setPaper('a5')->output();
+        ])->setPaper('a5')->setOption('isFontSubsettingEnabled', true)->output();   // ~1 MB of fonts otherwise
     }
 
     // An image on the private disk as a data URI for Dompdf (no file access from the template); null if missing
