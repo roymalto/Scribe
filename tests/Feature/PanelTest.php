@@ -83,6 +83,30 @@ class PanelTest extends DatabaseTestCase
         $this->assertNull(User::where('email', 'new.nurse@example.test')->first(), 'no account until they accept');
     }
 
+    public function test_only_the_administrator_gets_accept_for_them_on_the_screen(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $clinicAdmin = $this->user('Liza Admin', roles: [$this->clinic->id => 'CLINIC_ADMIN']);
+        $this->actingAs($clinicAdmin);
+        $this->inPanel();
+        app(\App\Services\Invitations::class)->invite($this->clinic, 'dr.screen@example.test', 'DOCTOR');
+        $inv = \App\Models\ClinicInvitation::firstOrFail();
+        $acceptFor = \Filament\Actions\Testing\TestAction::make('acceptFor')->table($inv);
+
+        \Livewire\Livewire::test(\App\Filament\Resources\Invitations\Pages\ManageInvitations::class)
+            ->assertActionHidden($acceptFor);
+
+        $this->actingAs($this->admin);
+        \Livewire\Livewire::test(\App\Filament\Resources\Invitations\Pages\ManageInvitations::class)
+            ->assertActionVisible($acceptFor)
+            ->callAction($acceptFor, ['name' => 'Dr Screen', 'password' => 'a-long-password-1'])
+            ->assertHasNoActionErrors()
+            ->assertSee('by Test Admin for them');
+
+        $this->as($this->admin);
+        $this->assertSame('DOCTOR', User::where('email', 'dr.screen@example.test')->firstOrFail()->roleIn($this->clinic));
+    }
+
     public function test_staff_cannot_open_invitations(): void
     {
         $this->actingAs($this->user('Joy Staff', roles: [$this->clinic->id => 'STAFF']));

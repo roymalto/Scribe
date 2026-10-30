@@ -14,6 +14,14 @@ class ClinicInvitation extends Model
 
     public function clinic(): BelongsTo { return $this->belongsTo(Clinic::class); }
     public function inviter(): BelongsTo { return $this->belongsTo(User::class, 'invited_by'); }
+    public function answeredBy(): BelongsTo { return $this->belongsTo(User::class, 'answered_by'); }
+
+    // Accepted by an administrator on the invited person's behalf (migration 000700)
+    public function acceptedOnBehalf(): bool
+    {
+        return $this->accepted_at !== null && $this->answeredBy !== null
+            && strtolower($this->answeredBy->email) !== strtolower($this->email);
+    }
 
     public function status(): string
     {

@@ -160,4 +160,76 @@ class InvitationTest extends DatabaseTestCase
         $this->as($doctor);
         $this->assertSame([strtolower($doctor->email)], ClinicInvitation::pluck('email')->all());
     }
+
+    public function test_an_administrator_accepts_for_an_existing_account(): void
+    {
+        $doctor = $this->user('Dr Away');
+        $token = $this->invite($doctor->email);
+
+        $this->as($this->admin);
+        app(Invitations::class)->acceptFor(ClinicInvitation::firstOrFail());
+        $this->assertSame('DOCTOR', $doctor->roleIn($this->clinic));
+        $inv = ClinicInvitation::firstOrFail();
+        $this->assertSame('Accepted', $inv->status());
+        $this->assertSame($this->admin->id, $inv->answered_by);
+        $this->assertTrue($inv->acceptedOnBehalf());
+        // the link is used up
+        $this->actingAs($doctor)->post("/invitations/{$token}/answer", ['answer' => 'decline'])->assertSessionHasErrors('answer');
+    }
+
+    public function test_an_administrator_accepts_for_a_new_person_with_a_password(): void
+    {
+        $this->invite('dr.new@example.test');
+        $this->as($this->admin);
+        app(Invitations::class)->acceptFor(ClinicInvitation::firstOrFail(), 'Dr New', 'a-long-password-1');
+
+        $doctor = User::where('email', 'dr.new@example.test')->firstOrFail();
+        $this->assertFalse($doctor->is_admin);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('a-long-password-1', $doctor->password));
+        $this->assertSame('DOCTOR', $doctor->roleIn($this->clinic));
+    }
+
+    public function test_only_an_administrator_accepts_for_someone_else(): void
+    {
+        $doctor = $this->user('Dr Elsewhere');
+        $this->invite($doctor->email);
+        $inv = ClinicInvitation::firstOrFail();
+
+        foreach ([$this->clinicAdmin, $doctor] as $who) {
+            $this->as($who);
+            try {
+                app(Invitations::class)->acceptFor($inv);
+                $this->fail("{$who->name} should not be able to accept for someone else");
+            } catch (QueryException $e) {
+                $this->assertStringContainsString('only an administrator', $e->getMessage());
+            }
+        }
+        $this->as($this->admin);
+        $this->assertNull($doctor->roleIn($this->clinic));
+    }
+
+    public function test_an_administrator_cannot_accept_an_expired_invitation(): void
+    {
+        $doctor = $this->user('Dr Late');
+        $this->invite($doctor->email);
+        $this->as($this->admin);
+        ClinicInvitation::query()->update(['expires_at' => now()->subMinute()]);
+
+        $this->expectException(QueryException::class);
+        app(Invitations::class)->acceptFor(ClinicInvitation::firstOrFail());
+    }
+
+    // The inviter gets the emailed link back, to pass on by hand only while mail isn't delivered
+    public function test_invite_returns_the_emailed_link(): void
+    {
+        $this->as($this->clinicAdmin);
+        $link = app(Invitations::class)->invite($this->clinic, 'dr.link@example.test', 'DOCTOR');
+        Mail::assertSent(ClinicInvitationMail::class, fn ($m) => $m->url === $link);
+        $this->assertNotNull(app(Invitations::class)->lookup(basename($link)));
+
+        config(['mail.default' => 'log']);
+        $this->assertTrue(Invitations::mailNotDelivered());
+        config(['mail.default' => 'smtp']);
+        $this->assertFalse(Invitations::mailNotDelivered());
+    }
 }

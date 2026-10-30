@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\ClinicInvitationMail;
 use App\Models\Clinic;
 use App\Models\ClinicInvitation;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -19,26 +20,46 @@ class Invitations
         return hash('sha256', $token);
     }
 
-    // Invite an email address (again: a new link replaces any unanswered one) and email them the link
-    public function invite(Clinic $clinic, string $email, string $role): ClinicInvitation
+    // True when the mailer doesn't deliver (dev and demo installs write mail to the log), so the inviter has to pass
+    // the link on by hand. With a real mail server the link only ever goes to the invited email.
+    public static function mailNotDelivered(): bool
+    {
+        return in_array(config('mail.default'), ['log', 'array'], true);
+    }
+
+    // Invite an email address (again: a new link replaces any unanswered one) and email them the link; returns the link
+    public function invite(Clinic $clinic, string $email, string $role): string
     {
         $email = strtolower(trim($email));
         $token = Str::random(48);
 
-        $invitation = DB::transaction(function () use ($clinic, $email, $role, $token) {
+        DB::transaction(function () use ($clinic, $email, $role, $token) {
             ClinicInvitation::where('clinic_id', $clinic->id)->whereRaw('lower(email) = ?', [$email])
                 ->whereNull('accepted_at')->whereNull('declined_at')->delete();
 
-            return ClinicInvitation::create([
+            ClinicInvitation::create([
                 'clinic_id' => $clinic->id, 'email' => $email, 'role' => $role, 'token_hash' => self::hash($token),
                 'invited_by' => auth()->id(), 'expires_at' => now()->addDays(self::DAYS_VALID),
             ]);
         });
 
-        Mail::to($email)->send(new ClinicInvitationMail($clinic, $role, route('invitations.show', $token),
-                                                        auth()->user()?->name));
+        $link = route('invitations.show', $token);
+        Mail::to($email)->send(new ClinicInvitationMail($clinic, $role, $link, auth()->user()?->name));
 
-        return $invitation;
+        return $link;
+    }
+
+    // An administrator accepts on the invited person's behalf, first creating their account (name, password) if there
+    // is none; returns the clinic's id
+    public function acceptFor(ClinicInvitation $invitation, ?string $name = null, ?string $password = null): int
+    {
+        return DB::transaction(function () use ($invitation, $name, $password) {
+            if (! User::whereRaw('lower(email) = ?', [strtolower($invitation->email)])->exists()) {
+                User::create(['name' => $name, 'email' => strtolower($invitation->email), 'password' => $password]);
+            }
+
+            return (int) DB::selectOne('SELECT scribe.accept_invitation_for(?) AS clinic_id', [$invitation->id])->clinic_id;
+        });
     }
 
     // What a link is for (anyone holding it may see this): id, clinic_name, email, role, status; or null
