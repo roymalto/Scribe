@@ -336,7 +336,7 @@ class PrescribingTest extends DatabaseTestCase
         $docs = PrescriptionDocument::count();
         $reference = $signed->fresh()->reference;
         $copy = $this->actingAs($this->staff)->get("/prescriptions/{$signed->id}/pdf?unsigned=1")->assertOk()
-            ->assertHeader('Content-Disposition', 'inline; filename="'.$reference.'-to-sign.pdf"');
+            ->assertHeader('Content-Disposition', 'attachment; filename="'.$reference.'-to-sign.pdf"');
         $this->assertStringStartsWith('%PDF', $copy->getContent());
         $this->assertSame(0, substr_count($copy->getContent(), '/Subtype /Image'));
         $this->as($this->doc);
