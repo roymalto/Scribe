@@ -1,6 +1,10 @@
 <?php
 
 return [
+    // The local edition: installed on one Windows PC for a doctor's own use (installer/windows). A first-run screen
+    // makes the doctor's account and clinic, two-factor sign-in is optional, and licences need no verification.
+    'local' => env('SCRIBE_EDITION') === 'local',
+
     // The first administrator, created by the seeder only when there are no users yet
     'admin_email' => env('SCRIBE_ADMIN_EMAIL'),
     'admin_password' => env('SCRIBE_ADMIN_PASSWORD'),

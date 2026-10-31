@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="3">
+<title>Scribe is starting</title>
+<style>
+  :root { --bg:#fafafa; --card:#fff; --text:#18181b; --muted:#71717a; --line:#e4e4e7; --accent:#0d9488; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#09090b; --card:#18181b; --text:#fafafa; --muted:#a1a1aa; --line:#27272a; } }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width:28rem; margin:5rem auto; padding:0 16px; text-align:center; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:2rem 1.5rem; }
+  .spinner { width:2rem; height:2rem; margin:0 auto 1rem; border:3px solid var(--line); border-top-color:var(--accent);
+             border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  p { color:var(--muted); margin:.5rem 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="spinner"></div>
+    <strong>Scribe is starting</strong>
+    <p>This page opens Scribe by itself in a moment. The very first start takes about a minute.</p>
+  </div>
+</main>
+</body>
+</html>

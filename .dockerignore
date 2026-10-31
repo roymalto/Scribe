@@ -18,3 +18,4 @@ storage/framework/testing
 storage/logs/*
 bootstrap/cache/*.php
 tests/browser/shots
+installer/windows/dist

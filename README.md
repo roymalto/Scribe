@@ -30,6 +30,15 @@ first sign-in.
 
 Brand files (icon, logo, favicon, app icons): `docs/brand/build_brand.py`, written to `public/brand/`.
 
+## Local edition (one Windows PC)
+
+`sh installer/windows/build.sh` builds `installer/windows/dist/Scribe-Setup-<VERSION>.exe`: the app from the
+`scribe:prod` image plus PHP 8.4, PostgreSQL 17 and Caddy for Windows (pinned, checksums checked), installed per user
+without administrator rights. `SCRIBE_EDITION=local` turns on a first-run screen (the doctor's account, clinic and
+licence; `scribe.first_run_setup()`), makes two-factor sign-in optional and drops licence verification
+(`scribe.local_edition()`, migration 001000). The launcher (`installer/windows/launcher/scribe.ps1`) starts everything
+on 127.0.0.1 only, updates the database on each start and backs up daily to Documents\Scribe Backups.
+
 ## Code map
 
 - `database/migrations/2026_10_24_000100_*`: tables; 000200 audit trail; 000300 row-level security; 000400

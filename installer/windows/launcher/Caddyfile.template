@@ -1,0 +1,31 @@
+# The web server for Scribe's local edition: this PC only (127.0.0.1). The launcher writes run\Caddyfile from this
+# on every start: {{...}} are filled in. PHP runs as four php-cgi processes; while they aren't up yet (first start,
+# database updates) people see the "Scribe is starting" page, which reloads itself.
+{
+	admin off
+	auto_https off
+	persist_config off
+	log {
+		output file "{{LOGS}}/caddy.log" {
+			roll_size 5MiB
+			roll_keep 3
+		}
+	}
+}
+
+http://:{{WEB_PORT}} {
+	bind 127.0.0.1
+	root * "{{PUBLIC}}"
+	encode gzip
+	php_fastcgi {{FCGI_UPSTREAMS}} {
+		lb_try_duration 5s
+		fail_duration 2s
+	}
+	file_server
+
+	handle_errors 502 503 504 {
+		root * "{{LAUNCHER}}"
+		rewrite * /starting.html
+		file_server
+	}
+}

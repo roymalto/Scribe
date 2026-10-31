@@ -1,0 +1,41 @@
+; PHP for Scribe's local edition. The launcher writes run\php.ini from this on every start: {{...}} are filled in.
+[PHP]
+engine = On
+short_open_tag = Off
+expose_php = Off
+memory_limit = 256M
+max_execution_time = 60
+upload_max_filesize = 8M
+post_max_size = 12M
+; Laravel reads LARAVEL_STORAGE_PATH (the data folder) from $_ENV
+variables_order = "EGPCS"
+display_errors = Off
+log_errors = On
+error_log = "{{LOGS}}\php-errors.log"
+extension_dir = "{{PHP}}\ext"
+sys_temp_dir = "{{TEMP}}"
+upload_tmp_dir = "{{TEMP}}"
+cgi.fix_pathinfo = 1
+
+extension = curl
+extension = fileinfo
+extension = gd
+extension = intl
+extension = mbstring
+extension = openssl
+extension = pdo_pgsql
+extension = pgsql
+extension = sodium
+extension = zip
+zend_extension = opcache
+
+[Date]
+date.timezone = Asia/Manila
+
+[opcache]
+opcache.enable = 1
+opcache.enable_cli = 0
+opcache.memory_consumption = 128
+opcache.max_accelerated_files = 20000
+; on: an update replaces the app's files in place
+opcache.validate_timestamps = 1

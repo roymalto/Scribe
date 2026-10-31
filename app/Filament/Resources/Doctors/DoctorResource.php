@@ -80,7 +80,7 @@ class DoctorResource extends Resource
                 ->placeholder('Juan Dela Cruz, MD, FPCP'),
             TextInput::make('specialty')->maxLength(255),
             TextInput::make('prc_license_no')->label('PRC licence number')->required()->maxLength(20)
-                ->helperText('Changing it clears the verification until an administrator checks it again.'),
+                ->helperText(config('scribe.local') ? null : 'Changing it clears the verification until an administrator checks it again.'),
             DatePicker::make('prc_valid_until')->label('PRC licence valid until'),
             TextInput::make('ptr_no')->label('PTR number')->maxLength(30),
             TextInput::make('s2_no')->label('S2 number')->maxLength(30)->helperText('PDEA licence, for dangerous drugs'),
@@ -109,7 +109,8 @@ class DoctorResource extends Resource
             TextColumn::make('prc_valid_until')->label('Valid until')->date('j M Y')
                 ->color(fn (Doctor $d) => $d->licenseExpired() ? 'danger' : null),
             IconColumn::make('signed')->label('Signature')->boolean()->state(fn (Doctor $d) => filled($d->signature_path)),
-            IconColumn::make('verified')->label('Verified')->boolean()->state(fn (Doctor $d) => $d->isVerified())
+            IconColumn::make('verified')->label('Verified')->boolean()->visible(! config('scribe.local'))   // not needed locally
+                ->state(fn (Doctor $d) => $d->isVerified())
                 ->tooltip(fn (Doctor $d) => $d->isVerified()
                     ? 'By '.($d->verifiedBy?->name ?? '?').' on '.$d->license_verified_at->timezone(config('app.timezone'))->format('j M Y')
                     : 'Not verified yet'),
@@ -117,7 +118,7 @@ class DoctorResource extends Resource
             EditAction::make()->visible(fn (Doctor $d) => static::canEdit($d)),   // doesn't hide itself
 
             Action::make('verify')->label('Verify')->icon('heroicon-o-check-badge')->color('success')
-                ->visible(fn (Doctor $d) => auth()->user()->is_admin && ! $d->isVerified())
+                ->visible(fn (Doctor $d) => auth()->user()->is_admin && ! $d->isVerified() && ! config('scribe.local'))
                 ->requiresConfirmation()
                 ->modalDescription(fn (Doctor $d) => "Check licence {$d->prc_license_no} on the PRC verification site first: "
                                                      .config('scribe.prc_verification_url'))
@@ -126,7 +127,7 @@ class DoctorResource extends Resource
                     Notification::make()->success()->title('Licence marked verified')->send();
                 }),
             Action::make('unverify')->label('Clear verification')->icon('heroicon-o-x-circle')->color('danger')
-                ->visible(fn (Doctor $d) => auth()->user()->is_admin && $d->isVerified())
+                ->visible(fn (Doctor $d) => auth()->user()->is_admin && $d->isVerified() && ! config('scribe.local'))
                 ->requiresConfirmation()
                 ->action(fn (Doctor $d) => $d->forceFill(['license_verified_at' => null])->save()),
             Action::make('removeSignature')->label('Remove signature')->icon('heroicon-o-trash')->color('danger')

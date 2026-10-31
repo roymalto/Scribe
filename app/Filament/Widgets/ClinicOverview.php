@@ -23,9 +23,13 @@ class ClinicOverview extends StatsOverviewWidget
 
         return [
             Stat::make('Staff', ClinicMember::where('clinic_id', $clinic->id)->count()),
-            Stat::make('Doctors with verified licences', "{$verified} of {$doctorIds->count()}")
-                ->description($doctors->count() < $doctorIds->count() ? ($doctorIds->count() - $doctors->count()).' without licence details' : null)
-                ->color($verified === $doctorIds->count() && $doctorIds->isNotEmpty() ? 'success' : 'warning'),
+            // the local edition doesn't verify licences (one doctor on their own PC): only the details matter there
+            config('scribe.local')
+                ? Stat::make('Doctors with licence details', "{$doctors->count()} of {$doctorIds->count()}")
+                    ->color($doctors->count() === $doctorIds->count() && $doctorIds->isNotEmpty() ? 'success' : 'warning')
+                : Stat::make('Doctors with verified licences', "{$verified} of {$doctorIds->count()}")
+                    ->description($doctors->count() < $doctorIds->count() ? ($doctorIds->count() - $doctors->count()).' without licence details' : null)
+                    ->color($verified === $doctorIds->count() && $doctorIds->isNotEmpty() ? 'success' : 'warning'),
             Stat::make('Clinic details', $missing->isEmpty() ? 'Complete' : 'Missing '.$missing->join(', ', ' and '))
                 ->color($missing->isEmpty() ? 'success' : 'warning'),
         ];

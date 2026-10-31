@@ -36,3 +36,6 @@ tests/browser/shots/
 
 # Session handover notes (not part of the product)
 HANDOVER.md
+
+# Windows installer build output (installer/windows/build.sh)
+/installer/windows/dist

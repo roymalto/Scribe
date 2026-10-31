@@ -36,7 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(\App\Filament\Auth\Login::class)
             ->profile(\App\Filament\Auth\EditProfile::class, isSimple: false)
             ->tenant(Clinic::class, slugAttribute: 'code')
             ->tenantProfile(EditClinicProfile::class)
@@ -57,9 +57,10 @@ class AdminPanelProvider extends PanelProvider
                                     500 => '#0f766e', 600 => '#115e59', 700 => '#134e4a', 800 => '#0f3d3a', 900 => '#0b2e2c',
                                     950 => '#042f2e'],
                       'gray' => Color::Zinc])
-            // Two-factor sign-in with an authenticator app; administrators must set it up
+            // Two-factor sign-in with an authenticator app; administrators must set it up (optional in the local
+            // edition: one doctor on their own PC)
             ->multiFactorAuthentication([AppAuthentication::make()->recoverable()],
-                isRequired: fn () => (bool) auth()->user()?->is_admin)
+                isRequired: fn () => (bool) auth()->user()?->is_admin && ! config('scribe.local'))
             ->navigationGroups(['Clinic', 'Platform'])
             // the clinic's details and logo (also under the clinic's name at the top), for those who keep them
             ->navigationItems([
